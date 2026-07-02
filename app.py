@@ -148,13 +148,27 @@ with tabs[2]:
     st.subheader("Solar Transit: Verifying Antenna Beamwidth")
     st.markdown("Calculate your horn's Half-Power Beamwidth (HPBW) using the Earth's rotation (0.25°/min).")
     
-    # Mock Time Series Data for the Sun drifting through the beam
-    time_mins = np.linspace(-30, 30, 100)
-    # Gaussian curve simulating solar transit
-    power_watts = 1e-12 + 5e-12 * np.exp(-0.5 * (time_mins / 8)**2) 
-    df_sun = pd.DataFrame({"Time (Minutes from Center)": time_mins, "Total Power (W)": power_watts})
+    # Add a file uploader for the solar data
+    solar_file = st.file_uploader("Upload Solar Drift Scan data (.csv)", type=["csv"], key="solar_upload")
     
-    fig_sun = px.line(df_sun, x="Time (Minutes from Center)", y="Total Power (W)", title="Solar Drift Scan (Raw Power vs Time)")
+    if solar_file is not None:
+        # Load the user's real data
+        df_sun = pd.read_csv(solar_file)
+        time_col = df_sun.columns[0]
+        power_col = df_sun.columns[1]
+        time_mins = df_sun[time_col].values
+        power_watts = df_sun[power_col].values
+    else:
+        # Fallback mock data if no file is uploaded
+        st.info("No file uploaded. Displaying mock solar drift data.")
+        time_mins = np.linspace(-30, 30, 100)
+        power_watts = 1e-12 + 5e-12 * np.exp(-0.5 * (time_mins / 8)**2) 
+        time_col = "Time (Minutes from Center)"
+        power_col = "Total Power (W)"
+        df_sun = pd.DataFrame({time_col: time_mins, power_col: power_watts})
+    
+    # Plot the data
+    fig_sun = px.line(df_sun, x=time_col, y=power_col, title="Solar Drift Scan (Raw Power vs Time)")
     
     # Find Half-Power Points
     max_power = power_watts.max()
@@ -166,12 +180,14 @@ with tabs[2]:
     
     # Calculate HPBW
     above_half = time_mins[power_watts >= half_power]
-    delta_t = above_half[-1] - above_half[0]
-    hpbw = delta_t * 0.25 # Earth rotates 0.25 degrees per minute
-    
-    st.metric(label="Calculated Time Above Half-Power (Δt)", value=f"{delta_t:.1f} minutes")
-    st.success(f"Empirical Half-Power Beamwidth (θ_HPBW) = {hpbw:.1f}°")
-
+    if len(above_half) > 1:
+        delta_t = above_half[-1] - above_half[0]
+        hpbw = delta_t * 0.25 # Earth rotates 0.25 degrees per minute
+        
+        st.metric(label="Calculated Time Above Half-Power (Δt)", value=f"{delta_t:.1f} minutes")
+        st.success(f"Empirical Half-Power Beamwidth (θ_HPBW) = {hpbw:.1f}°")
+    else:
+        st.warning("Could not calculate HPBW: Peak is too narrow or data is insufficient.")
 # ==========================================
 # TAB 4: Atmospheric Skydip
 # ==========================================
