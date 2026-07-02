@@ -5,6 +5,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 from scipy.signal import find_peaks
 from scipy.stats import linregress
+from astropy.coordinates import EarthLocation, AltAz, SkyCoord
+from astropy.time import Time
+import astropy.units as u
+import datetime
 
 # --- App Configuration ---
 st.set_page_config(
@@ -90,40 +94,66 @@ with tabs[0]:
 # ==========================================
 with tabs[1]:
     st.subheader("Kinematics: Mapping the Milky Way")
+    st.markdown("Enter your local field coordinates. The app will automatically calculate the Galactic Longitude ($l$) using Astropy.")
     
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         v_obs = st.number_input("Observed Velocity (km/s)", value=-30.5)
     with col2:
-        l_deg = st.number_input("Galactic Longitude (l) in degrees", value=45.0)
+        azimuth = st.number_input("Antenna Azimuth (°)", value=180.0, help="0=North, 90=East, 180=South, 270=West")
+    with col3:
+        altitude = st.number_input("Antenna Elevation (°)", value=45.0, help="0=Horizon, 90=Zenith")
+        
+    col_date, col_time = st.columns(2)
+    with col_date:
+        obs_date = st.date_input("Observation Date", value=datetime.date(2026, 7, 2))
+    with col_time:
+        obs_time = st.time_input("Observation Time (IST)", value=datetime.time(20, 21))
 
-    # Flat Rotation Model Parameters
-    R_0 = 8.5 # kpc (Distance to Galactic Center)
-    V_0 = 220 # km/s (Sun's orbital speed)
-    l_rad = np.radians(l_deg)
-    
-    # Calculate R (Distance from Galactic Center)
-    # Derived from: V_lsr = V_0 * (R_0 / R - 1) * sin(l)
+    # --- Astropy Coordinate Transformation ---
     try:
+        # Defaulting observer location to Ahmedabad, Gujarat
+        observer_location = EarthLocation(lat=23.0225*u.deg, lon=72.5714*u.deg, height=50*u.m)
+        
+        # Combine date and time (Convert IST to UTC for Astropy)
+        dt_ist = datetime.datetime.combine(obs_date, obs_time)
+        dt_utc = dt_ist - datetime.timedelta(hours=5, minutes=30)
+        astropy_time = Time(dt_utc)
+        
+        # Calculate where the antenna was pointing in the sky
+        antenna_pointing = AltAz(az=azimuth*u.deg, alt=altitude*u.deg, obstime=astropy_time, location=observer_location)
+        sky_target = SkyCoord(antenna_pointing)
+        galactic_coords = sky_target.transform_to('galactic')
+        
+        l_deg = galactic_coords.l.degree
+        b_deg = galactic_coords.b.degree
+        
+        st.info(f"✨ **Calculated Galactic Coordinates:** Longitude ($l$) = {l_deg:.2f}° | Latitude ($b$) = {b_deg:.2f}°")
+        
+        # --- Flat Rotation Model Parameters ---
+        R_0 = 8.5 # kpc (Distance to Galactic Center)
+        V_0 = 220 # km/s (Sun's orbital speed)
+        l_rad = np.radians(l_deg)
+        
+        # Calculate R (Distance from Galactic Center)
         ratio = (v_obs / (V_0 * np.sin(l_rad))) + 1
         R_calc = R_0 / ratio
         
         # Convert to X, Y Cartesian Coordinates
-        # Sun is at (0, -8.5)
         d = R_0 * np.cos(l_rad) + np.sqrt(R_calc**2 - (R_0 * np.sin(l_rad))**2)
         X = d * np.sin(l_rad)
         Y = d * np.cos(l_rad) - R_0
         
         st.success(f"Calculated Distance from Galactic Center (R): {R_calc:.2f} kpc")
         
-        # 2D Map Plot
+        # --- 2D Map Plot ---
         fig_map = go.Figure()
         
-        # Plot Galactic Center
-        fig_map.add_trace(go.Scatter(x=[0], y=[0], mode='markers', marker=dict(symbol='star', size=15, color='black'), name="Galactic Center"))
-        # Plot Sun
+        # Plot Galactic Center & Sun
+        fig_map.add_trace(go.Scatter(x=[0], y=[0], mode='markers', marker=dict(symbol='star', size=15, color='black'), name="Galactic Center (Sgr A*)"))
         fig_map.add_trace(go.Scatter(x=[0], y=[-R_0], mode='markers', marker=dict(size=12, color='gold'), name="Our Sun"))
-        # Plot Cloud
+        
+        # Plot the detected Hydrogen Cloud
         fig_map.add_trace(go.Scatter(x=[X], y=[Y], mode='markers', marker=dict(symbol='x', size=12, color='crimson'), name="Hydrogen Cloud"))
         
         # Draw Solar Orbit Ring
@@ -139,8 +169,7 @@ with tabs[1]:
         st.plotly_chart(fig_map, use_container_width=False)
         
     except Exception as e:
-        st.error("Invalid geometry for these parameters. Check your angles.")
-
+        st.error(f"Error calculating coordinates. Make sure your values are valid! ({e})")
 # ==========================================
 # TAB 3: Solar Drift Scan
 # ==========================================
