@@ -128,7 +128,7 @@ with tabs[1]:
         l_deg = galactic_coords.l.degree
         b_deg = galactic_coords.b.degree
         
-        st.info(f"✨ **Calculated Galactic Coordinates:** Longitude ($l$) = {l_deg:.2f}° | Latitude ($b$) = {b_deg:.2f}°")
+        st.info(f"**Calculated Galactic Coordinates:** Longitude ($l$) = {l_deg:.2f}° | Latitude ($b$) = {b_deg:.2f}°")
         
         # --- Flat Rotation Model Parameters ---
         R_0 = 8.5 # kpc (Distance to Galactic Center)
