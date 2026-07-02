@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("📡 Radio Astronomy & Horn Antenna Dashboard")
+st.title("Radio Astronomy & Horn Antenna Dashboard")
 st.markdown("""
 Welcome to the data processing pipeline for our 21-cm Horn Antenna project. 
 Navigate through the tabs to analyze raw hydrogen spectra, map galactic kinematics, 
