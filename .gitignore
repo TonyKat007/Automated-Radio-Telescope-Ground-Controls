@@ -1,0 +1,16 @@
+# Python virtual environments
+venv/
+env/
+__pycache__/
+
+# Streamlit specific
+.streamlit/secrets.toml
+
+# Ignore heavy raw data files (to keep GitHub fast)
+*.csv
+*.txt
+*.dat
+
+# Mac/Windows system files
+.DS_Store
+Thumbs.db
